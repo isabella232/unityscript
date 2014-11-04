@@ -46,4 +46,7 @@ More features coming soon.
 
 - Repeat the same steps on another machine or install the app on a device.
 
+#### Limitations:
+As of now the Heartbeat feature doesn't work on the web player. It has been disabled for now.
+
 # Please direct all Support Questions and Concerns to Support@PubNub.com
