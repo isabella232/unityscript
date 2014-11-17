@@ -281,7 +281,7 @@ function OnGUI(){
 			StartCoroutine(pubnub.Time(ParseTimeResponse));
 		}
 		if (GUI.Button (Rect (10,90,150,40), "Detailed History")) {
-			StartCoroutine(pubnub.DetailedHistory(channel, 10, ParseDetailedHistoryResponse));
+			StartCoroutine(pubnub.DetailedHistory(channel, 10, -1, -1, false, ParseDetailedHistoryResponse));
 		}
 		if (GUI.Button (Rect (170,90,150,40), "Here Now")) {
 			StartCoroutine(pubnub.HereNow(channel, ParseHereNowResponse));

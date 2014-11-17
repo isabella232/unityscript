@@ -11,9 +11,9 @@ class PubNub extends MonoBehaviour{
 	var suburl = "subscribe";
 	var hurl = "v2";
 	var turl = "time/0";
-	var pubkey = "demo";
-	var subkey = "demo";
-	var seckey = "demo";
+	var pubkey = "";
+	var subkey = "";
+	var seckey = "";
 	var cipherkey = "";
 	var ssl = false;
 	var limit = 1800;
@@ -28,6 +28,8 @@ class PubNub extends MonoBehaviour{
 	private var builder: System.Text.StringBuilder;
 	var thdHeartbeat:Thread;
 	var disableHeartbeat = true;
+	var isTest = false;
+	var pnsdk = "pnsdk=PubNub-UnityScript/3.4";
 	
 	function PubNub(){
 		builder = new System.Text.StringBuilder();
@@ -100,15 +102,62 @@ class PubNub extends MonoBehaviour{
 		cipherkey = cipher;
 		ssl = sslOn;
 		uuid = nuuid;
+		if(uuid == ""){
+			uuid = Guid();
+		}
 	}
 	
 	private function Escape( msg: String ): String { return WWW.EscapeURL(msg); }
 	private function UnEscape( msg: String ): String { return WWW.UnEscapeURL(msg); }
 	//private function Wrap( msg: String ): String{ return Escape('"'+msg+'"'); }
+	
+	function IsSubKeyInvalid(cb: Function):boolean{
+		if((subkey == null) || (subkey == "")){
+			cb( ["[\"Invalid Subscribe Key\"]"] );
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	function IsChannelInvalid(channel:String, cb: Function):boolean{
+		if((channel == null) || (channel == "")){
+			cb( ["[\"Invalid Channel\"]", channel] );
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	function IsMessageInvalid(message:Object, cb: Function, channel:String):boolean{
+		if((message == null) || (message.ToString() == "")){
+			cb( ["[\"Invalid Message\"]", channel] );
+			return true;
+		} else {
+			return false;
+		}
+	}
 
 	//TODO:Accept objects
 	function Publish( channel: String, objectToSerialize: Object, sendAsIs: boolean, cb: Function ){
 		var msg: String;
+		if((pubkey == null) || (pubkey == "")){
+			cb( ["[\"Invalid Publish Key\"]"] );
+			return;
+		}
+		
+		if(IsSubKeyInvalid(cb)){			
+			return;
+		}
+		
+		if(IsChannelInvalid(channel, cb)){
+			return;
+		}
+		
+		if(IsMessageInvalid(objectToSerialize, cb, channel)){
+			return;
+		}		
+		
 		if(sendAsIs){
 			msg = objectToSerialize.ToString();
 		}else {
@@ -145,13 +194,20 @@ class PubNub extends MonoBehaviour{
                 // Sign Message
                 signature = Md5Sum (stringToSign.ToString ());
             }
-			w = Request([puburl, pubkey, subkey, signature, channel, 0, msg], null);
+			w = Request([puburl, pubkey, subkey, signature, channel, 0, msg], ["uuid=" + uuid, pnsdk]);
 		} catch(err) {
 			Debug.Log("Publish Error:" + err);
 			return;
 		}	
 					
-		yield w;
+		//yield w;
+		if(!isTest){
+			yield w;
+		} else {
+			while(!w.isDone){
+				Debug.Log("waiting");
+			}
+		}
 	
 		if( w.error ){
 			Debug.Log( w.error );
@@ -191,12 +247,52 @@ class PubNub extends MonoBehaviour{
 		}	
 	}
 
-	function DetailedHistory( channel: String, count:int, cb: Function ){
+	function DetailedHistory( channel: String, count:int, start:long, end:long, reverse:boolean, cb: Function ){
+		
+		if(IsSubKeyInvalid(cb)){			
+			return;
+		}
+		
+		if(IsChannelInvalid(channel, cb)){
+			return;
+		}
+		
 		channel = Escape(channel);
 		
+		if (count <= -1) count = 100;
+
+		var paramString = "";
+		if (reverse) {
+			var reverseString = "reverse=" + reverse.ToString().ToLower ();
+			paramString = reverseString;
+		}
+		if (start != -1) {
+			var startString = "start=" + start.ToString().ToLower();
+			if(paramString != ""){
+				paramString += "&" + startString;
+			} else {
+				paramString += startString;
+			}
+		}
+		if (end != -1) {
+			var endString = "end=" + end.ToString().ToLower();
+			if(paramString != ""){
+				paramString += "&" + endString;
+			} else {
+				paramString += endString;
+			}
+		}
+		
 		var backoff = 0;
-		var w = Request([hurl, "history", "sub-key" , subkey, "channel", channel], ["count=" + count]);
-		yield w;
+		var w = Request([hurl, "history", "sub-key" , subkey, "channel", channel], ["count=" + count, "uuid=" + uuid, pnsdk, paramString ]);
+		//yield w;
+		if(!isTest){
+			yield w;
+		} else {
+			while(!w.isDone){
+				Debug.Log("waiting");
+			}
+		}		
 	
 		if( w.error ){
 			Debug.Log( w.error );
@@ -241,31 +337,59 @@ class PubNub extends MonoBehaviour{
 				}
 				cb( JsonWriter.Serialize(returnArrayFinal) ); 
 			} else {
-				cb( w.text ); 
+				cb( UnEscape(w.text) ); 
 			}
 			return; 
+		}
+	}
+	
+	function yieldOrWait(w:WWW){
+		if(!isTest){
+			yield w;
+		} else {
+			while(!w.isDone){
+				Debug.Log("waiting");
+			}
 		}
 	}
 
 	function Time (cb: Function){
 		var backoff = 0;
-		var w = Request([turl], null);
-		yield w;
-	
+		var w = Request([turl], ["uuid=" + uuid, pnsdk]);
+
+		if(!isTest){
+			yield w;
+		} else {
+			while(!w.isDone){
+				Debug.Log("waiting");
+			}
+		}
+		
 		if( w.error ){
 			Debug.Log( w.error );
 			if( backoff < 1 ) backoff += 0.1;
 			yield WaitForSeconds( backoff );
 			
-		} else { cb( w.text ); return; }		
+		} else { 
+			Debug.Log("Return:" + w.text);
+			cb( w.text ); return; 
+		}		
 	}
 
 	function HereNow( channel: String, cb: Function ){
+		if(IsSubKeyInvalid(cb)){			
+			return;
+		}
+		
+		if(IsChannelInvalid(channel, cb)){
+			return;
+		}
+			
 		channel = Escape(channel);
 		var w: WWW = null;
 		var backoff = 0;
 		try{		
-			w = Request([hurl, "presence", "sub-key" , subkey, "channel", channel], null);
+			w = Request([hurl, "presence", "sub-key" , subkey, "channel", channel], ["uuid=" + uuid, pnsdk]);
 		} catch(err) {
 			Debug.Log("Herenow Error:" +err);
 			return;
@@ -284,7 +408,18 @@ class PubNub extends MonoBehaviour{
 	}
 	
 	function Subscribe( channel: String, isPresence: boolean, cb: Function, cbPresence: Function){
-		if(isPresence) channel +="-pnpres";
+		if(IsChannelInvalid(channel, cb)){
+			return;
+		}
+	
+		if(isPresence){
+			channel +="-pnpres";
+			if(IsSubKeyInvalid(cbPresence)){			
+				return;
+			}
+		} else if(IsSubKeyInvalid(cb)){			
+			return;
+		}		
 		
 		if(channelUpdateLock){
 			Debug.Log("Processing....");
@@ -316,6 +451,7 @@ class PubNub extends MonoBehaviour{
 		var cbArr = [cb, cbPresence];
 		StopHeartbeat();
 		yield StartCoroutine("SubLoop", cbArr);
+
 	}
 		
 	function toDateFromEpoch(lTimetoken: String){
@@ -485,8 +621,15 @@ class PubNub extends MonoBehaviour{
 				}
 			}
 			
-			var subscribeWww1 = Request( [suburl, subkey, Escape(ch), NULL, timetoken], ["uuid=" + uuid] );
-			yield subscribeWww1;	
+			var subscribeWww1 = Request( [suburl, subkey, Escape(ch), NULL, timetoken], ["uuid=" + uuid, pnsdk] );
+			yield subscribeWww1;
+			/*if(!isTest){
+				yield subscribeWww1;
+			} else {
+				while(!subscribeWww1.isDone){
+					Debug.Log("waiting");
+				}
+			}*/
 
 			try {									
 				if(subscribeWww1 != null ){
@@ -597,7 +740,15 @@ class PubNub extends MonoBehaviour{
 	}
 	
 	function Unsubscribe( channel: String, isPresence: Boolean, cb: Function ){
+		if(IsSubKeyInvalid(cb)){			
+			return;
+		}
+		
+		if(IsChannelInvalid(channel, cb)){
+			return;
+		}		
 		if(isPresence) channel +="-pnpres";
+		
 		channelUpdateLock = true;
 		if(!channel in channels) return;
 
@@ -610,7 +761,7 @@ class PubNub extends MonoBehaviour{
 		var w: WWW = null;
 		var backoff = 0;
 		try{		
-			w = Request([hurl, "presence", "sub-key" , subkey, "channel", channel, "leave"], ["uuid=" + uuid]);
+			w = Request([hurl, "presence", "sub-key" , subkey, "channel", channel, "leave"], ["uuid=" + uuid, pnsdk]);
 		} catch(err) {
 			Debug.Log("Unsubscribe Error:" +err);
 			return;
