@@ -23,7 +23,7 @@ class CommonMonoBehaviour extends MonoBehaviour{
 	
 	//function Subs(pubnub:PubNub, ch:String, message:Hashtable, ParseResponse:Function, ParseResponseDummy:Function){
 	function Subs(pubnub:PubNub, ch:String, controller:CoroutineController, ParseResponse:Function, ParseResponseDummy:Function): IEnumerator{
-		var someCoroutine:IEnumerator = pubnub.Subscribe(ch, false, ParseResponse, ParseResponseDummy);
+		var someCoroutine:IEnumerator = pubnub.Subscribe(ch, false, "", ParseResponse, ParseResponseDummy);
 		var startSomeCoroutine:Coroutine = StartCoroutine(someCoroutine);
 		//var startSomeCoroutine:Coroutine = StartCoroutine(pubnub.Time(ParseResponse));
 		//someCoroutine.MoveNext();
@@ -169,10 +169,10 @@ class PubnubDemoMessage
 	}
 }
 
-@TestFixture
+//@TestFixture
 public class WhenAClientIsPresented
 {
-	@Test
+	//@Test
 	function TestsForUNITYANDROID ()
 	{
 		Assert.True (true);

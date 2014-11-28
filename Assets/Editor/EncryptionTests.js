@@ -222,7 +222,7 @@ public class EncryptionTests
 		message = Common.Serialize (message);
 		//encrypt
 		var encrypted:String = pubnubCrypto.Encrypt (message);
-
+		Debug.Log("encrypted" +encrypted);
 		Assert.True (("f42pIQcWZ9zbTbH8cyLwB/tdvRxjFLOYcBNMVKeHS54=").Equals (encrypted));
 	}
 
@@ -257,9 +257,10 @@ public class EncryptionTests
 		var message:String = "Pubnub Messaging API 1";
 		//serialize
 		message = Common.Serialize (message);
+		
 		//encrypt
 		var encrypted:String = pubnubCrypto.Encrypt (message);
-
+		Debug.Log("encrypted" +encrypted);
 		Assert.True (("f42pIQcWZ9zbTbH8cyLwByD/GsviOE0vcREIEVPARR0=").Equals (encrypted));
 	}
 
@@ -366,7 +367,7 @@ public class EncryptionTests
 
 	/// <summary>
 	/// Tests the null decryption.
-	/// Assumes that the input message is  deserialized  
+	/// Assumes that the input message is deserialized  
 	/// </summary>        
 	@Test
 	@ExpectedException (typeof(System.ArgumentNullException))

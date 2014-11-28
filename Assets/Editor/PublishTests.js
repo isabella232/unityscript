@@ -153,7 +153,7 @@ public class PublishTests
 
 			if(i > 0){
 				var output:Object[] = JsonReader.Deserialize (Common.response[0].ToString()) as Object[];
-				if(!output[0].ToString().Contains("Invalid")){
+				if(!output[1].ToString().Contains("Invalid")){
 					Assert.Fail("Publish null test failed");
 				} 
 			} else {
@@ -185,15 +185,5 @@ public class PublishTests
 		} else {
 			Assert.Fail("Publish null test failed, response null");			
 		}	
-	}
-	
-	@Test
-	function UUIDTest(){
-		var cmb = Common.InitTest("enigma", "", false, true);
-		var uuid = Common.pubnubCommon.Guid();
-		Debug.Log("uuid:"+ uuid);
-		if( uuid==null || uuid == ""){
-			Assert.Fail("uuid null");
-		}
 	}
 }

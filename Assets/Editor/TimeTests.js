@@ -4,7 +4,7 @@ import NUnit.Framework;
 import System;
 
 @TestFixture
-public class WhenGetRequestServerTime
+public class TimeTests
 {
 	 var pubkey = 'demo';
 	 var subkey = 'demo';
@@ -50,35 +50,58 @@ public class WhenGetRequestServerTime
 			
 		}
 	}
+
+	function SubCoroutineEx(channel:String, isPresence:Boolean, timetoken:String, cmb:CommonMonoBehaviour):IEnumerator{
+		Common.pubnubCommon.isTest = false;	
+		//yield cmb.StartCoroutine(Common.pubnubCommon.Subscribe(channel, false, timetoken.ToString(), ParseResponse, ParseResponseDummy));
+		var someCoroutine:IEnumerator = Common.pubnubCommon.Subscribe(channel, false, timetoken.ToString(), Common.ParseResponse, Common.ParseResponseDummy);
+		var startSomeCoroutine:Coroutine = cmb.StartCoroutine(someCoroutine);
+		while (!someCoroutine.MoveNext())
+		{
+			Debug.Log("Im running");
+			yield WaitForSeconds(100);
+		}
+		yield startSomeCoroutine;
+	}
 	
 	//@Test
 	function Subscribe ()
 	{
-		var player = new GameObject ("Player2");
-		var cmb = player.AddComponent(CommonMonoBehaviour);
-		var pubnub = player.AddComponent(PubNub);//Common.pubnubCommon;		
-		pubnub.Init(Common.PublishKey, Common.SubscribeKey, Common.SecretKey, "", "", secure);
-		pubnub.isTest = true;
-		pn = pubnub;
 		var ch = "test";
-		channel = ch;
-		response = null;
-		deliveryStatus = false;		
+		var cmb = Common.InitTest("", "", true, true);
 		var messageToSend:Hashtable = new Hashtable();
 		messageToSend["username"] = "username3";
 		messageToSend["message"] = "messageToChat3";
 		message = messageToSend;
+		var starttime:long = Common.GetTimestamp (cmb);
+		Common.response = null;
+		Common.deliveryStatus = false;		
+		
+		cmb.StartCoroutine(Common.pubnubCommon.Publish(ch, message, false, Common.ParseResponseDummy));		
+		Common.response = null;
+		Common.deliveryStatus = false;		
 		
 		//var t = new Task(pubnub.Subscribe(ch, false, ParseResponse, ParseResponseDummy), true);
-		var controller:CoroutineController;
+		//var controller:CoroutineController;
 		//cmb.Init(pn, ch, controller, ParseResponse, ParseResponseDummy);
-		cmb.StartCoroutineEx(pubnub.Subscribe(ch, false, ParseResponse, ParseResponseDummy), controller);
+		//cmb.StartCoroutineEx(Common.pubnubCommon.Subscribe(ch, false, starttime.ToString(), ParseResponse, ParseResponseDummy), controller);
 		//cmb.Init(pn, ch, controller, ParseResponse, ParseResponseDummy);
-		controller.Pause();
-		Debug.Log(controller.state);
-		cmb.StartCoroutine(pubnub.Publish(ch, message, false, ParseResponseDummy));		
-		controller.Resume();	
-		Debug.Log(controller.state);			
+		//controller.Pause();
+		//Debug.Log(controller.state);
+		
+		//controller.Resume();	
+		//Debug.Log(controller.state);		
+		/*var someCoroutine:IEnumerator = Common.pubnubCommon.Subscribe(ch, false, starttime.ToString(), ParseResponse, ParseResponseDummy;
+		var startSomeCoroutine:Coroutine = cmb.StartCoroutine(someCoroutine);
+		while (!someCoroutine.MoveNext())
+		{
+			Debug.Log("Im running");
+			//yield WaitForSeconds(100);
+		}	*/	
+		SubCoroutineEx(ch, false, starttime.ToString(), cmb);
+		while (!Common.deliveryStatus){
+			Debug.Log("Waiting for response");
+		}
 		//Thread.Sleep(2000);
 		//t.Pause();
 		//cmb.StartCoroutine(pubnub.Publish(ch, message, false, ParseResponseDummy));		
@@ -92,11 +115,11 @@ public class WhenGetRequestServerTime
 		//cmb.StartCoroutineEx(SomeCoroutine(), out controller);
 		//cmb.StartCoroutine(pubnub.Subscribe(ch, false, ParseResponse, ParseResponseDummy));
 						
-		if(response != null){
-			var i = response.length;
+		if(Common.response != null){
+			var i = Common.response.length;
 			if(i > 0){
-				Debug.Log("reponse0:" + response[0].ToString());
-				Assert.False (("0").Equals (response[0].ToString()));
+				Debug.Log("reponse0:" + Common.response[0].ToString());
+				Assert.False (("0").Equals (Common.response[0].ToString()));
 			} else {
 				Assert.Fail ("Subscribe test failed");
 			}
