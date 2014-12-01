@@ -10,10 +10,8 @@ import System.Threading;
 //3. tests: Decryption unicode failing, DONE
 //4. tests: Emoji failing, DONE
 
-//Detailed history emoji when using encrypted connection, the emoji was sent with non encrypted conn
-
-//input for keys and cipher in adv view, done
-//UI for android and iOS, done
+//input for keys and cipher in adv view, done, test pending on ios and Android
+//UI for android and iOS, done, test pending
 //Configure on Jenkins, nd
 //update blog, nd
 class PubNub extends MonoBehaviour{
@@ -516,8 +514,9 @@ class PubNub extends MonoBehaviour{
 	}
 	
 	function End(){
-		StopCoroutine("SubLoop");
-		StopHeartbeat();
+		chArr = new Array ();
+		//StopCoroutine("SubLoop");
+		//StopHeartbeat();
 	}
 		
 	function toDateFromEpoch(lTimetoken: String){

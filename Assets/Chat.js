@@ -49,6 +49,9 @@ var uuid = "";
 var pubnub: PubNub;
 
 var textAreaStyle : GUIStyle;
+//var defaultGUIBackgroundTexture : Texture2D = GUI.skin.box.normal.background;
+var uiSkin: GUISkin;
+var windowStyle:GUIStyle;
 
 function Start(){
 	users = new Array ();
@@ -62,9 +65,27 @@ function Start(){
 	uuid = GetUserID();
 	Debug.Log("pubkey, subkey, seckey:" + pubkey + "," + subkey + "," + seckey);
 	pubnub.Init(pubkey, subkey, seckey, cipher, uuid, secure);
-	
 	username = pubnub.GetUuid();
+	var bg:Texture2D = new Texture2D(5, 5);
+	bg.SetPixel(0, 0, new Color(1.0f, 1.0f, 1.0f, 1.0f));
+	windowStyle.normal.background = bg;	
+	windowStyle.normal.textColor = Color.black;	
 	
+	windowStyle.padding.left = 10;
+	windowStyle.padding.right = 10;
+	windowStyle.padding.top = 5;
+	windowStyle.padding.bottom = 10;
+
+	windowStyle.margin.left = 10;
+	windowStyle.margin.right = 10;
+	windowStyle.margin.top = 5;
+	windowStyle.margin.bottom = 10;
+
+	windowStyle.border.left = 8;
+	windowStyle.border.right = 8;
+	windowStyle.border.top = 18;
+	windowStyle.border.bottom = 8;
+
 	enableControls = true;
 }
 
@@ -280,8 +301,9 @@ function DoWindow0 (windowID : int) {
 }
 
 function DoPublishWindow (windowID : int) {
-	GUI.backgroundColor = new Color(1,1,1,1);
-	GUI.Label (new Rect (10, 10,100,20), "Message");
+	//GUI.backgroundColor = new Color(1,1,1,1);
+	GUI.color = Color.black;
+	GUI.Label (new Rect (10, 20,100,20), "Message");
 
 	publishedMessage = GUI.TextArea (new Rect (110, 25, 150, 60), publishedMessage, 2000);
 	if (GUI.Button (new Rect (30, 100, 100, 30), "Publish")){
@@ -292,11 +314,15 @@ function DoPublishWindow (windowID : int) {
 	if (GUI.Button (new Rect (150, 100, 100, 30), "Cancel")){
 		showPublishWindow = false;
 	}
-	GUI.backgroundColor = new Color (1, 1, 1, 1);
+	//GUI.backgroundColor = new Color (1, 1, 1, 1);
 }
 
 function DoActionWindow (windowID : int) {
-	GUI.backgroundColor = new Color(1,1,1,1);
+	//GUI.backgroundColor = new Color(1,1,1,1);
+	//var currentSkin = GUI.skin;
+	//GUI.skin = customSkin;
+	GUI.color = Color.black;
+
 	secure = GUI.Toggle(Rect (10, 20, 100, 20), secure, "SSL");
 	
 	if (GUI.Button (new Rect (150,20,100,30), "Close")){
@@ -317,6 +343,8 @@ function DoActionWindow (windowID : int) {
 	if (GUI.Button (Rect (200, 180, 50, 25), "Reset")) {
 		pubnub.End();
 		pubnub.Init(pubkey, subkey, seckey, cipher, uuid, secure);
+		connectTitle = "Connect";
+		connectInit = false;		
 	}
 		
 	if (GUI.Button (Rect (10, 210, 120, 40), "Subscribe")) {
@@ -353,23 +381,22 @@ function DoActionWindow (windowID : int) {
 		StartCoroutine(pubnub.Unsubscribe(channel, true, ParseResponseUnsubscribe));
 		showActionWindow = false;
 	}
-
-	GUI.backgroundColor = new Color (1, 1, 1, 1);
+	//GUI.skin = currentSkin;
+	//GUI.backgroundColor = new Color (1, 1, 1, 1);
 }
-//var defaultGUIBackgroundTexture : Texture2D = GUI.skin.box.normal.background;
 
 function OnGUI(){
 	var scWidth = Screen.width;
 	var scHeight = Screen.height;
+	
 	if(showAdvanced){
 		var myBox : GUIStyle;
-		//GUI.skin.box.normal.background = nonTransparentTexture;
 		if(showPublishWindow){
-			windowRect = GUI.ModalWindow (0, windowRect, DoPublishWindow, "Publish");	
+			windowRect = GUI.ModalWindow (0, windowRect, DoPublishWindow, "Publish", windowStyle);	
 		}
 		
 		if(showActionWindow){
-			actionWindowRect = GUI.ModalWindow (0, actionWindowRect, DoActionWindow, "Action Menu");	
+			actionWindowRect = GUI.ModalWindow (0, actionWindowRect, DoActionWindow, "Action Menu", windowStyle);	
 		}
 		
 		if (GUI.Button (Rect (10,40,150,25), "Action Menu")) {
@@ -380,7 +407,7 @@ function OnGUI(){
 			showAdvanced = !showAdvanced;
 		}		
 	
-		GUI.backgroundColor = new Color (1, 1, 1, 1);	
+		//GUI.backgroundColor = new Color (1, 1, 1, 1);	
 		GUI.Label (new Rect (10, 10,100,20), "Channel");
 
 		channel = GUI.TextField (Rect (120, 10, 200, 20), channel, 25);
@@ -404,7 +431,7 @@ function OnGUI(){
 		GUI.Label (new Rect (10, 350,100,30), "Logs");
 		logs = GUI.TextArea(new Rect(10, 380, 420, 100), logs);
 	} else {
-		GUI.backgroundColor = new Color (1, 1, 1, 1);	
+		//GUI.backgroundColor = new Color (1, 1, 1, 1);	
 		if(connectInit){
 			GUI.enabled = false;
 		} else {
