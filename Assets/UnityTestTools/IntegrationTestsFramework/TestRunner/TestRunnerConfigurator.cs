@@ -107,7 +107,7 @@ namespace UnityTest
                 return new List<String>{IPAddress.Loopback.ToString()};
 
             var ipList = new List<UnicastIPAddressInformation>();
-
+try{
             foreach (var netInterface in NetworkInterface.GetAllNetworkInterfaces())
             {
                 if (netInterface.NetworkInterfaceType != NetworkInterfaceType.Wireless80211 &&
@@ -126,6 +126,9 @@ namespace UnityTest
                             var mask2 = BitConverter.ToInt32(ip2.IPv4Mask.GetAddressBytes().Reverse().ToArray(), 0);
                             return mask2.CompareTo(mask1);
                         });
+}catch (Exception ex){
+//
+}                        
             if (ipList.Count == 0)
                 return new List<String> { IPAddress.Loopback.ToString() };
             return ipList.Select(i => i.Address.ToString()).ToList();
