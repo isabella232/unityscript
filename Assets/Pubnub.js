@@ -702,7 +702,8 @@ class PubNub extends MonoBehaviour{
 					}
 				}
 			} catch(err) Debug.Log("Sub loop Error:" +err);	
-						
+				
+			#if !UNITY_WEBPLAYER		
 			if(!disableHeartbeat){
 				if( nonPresenceCount >0 && !heartBeatRunning){
 					//yield StartCoroutine("Heartbeat", cb);
@@ -715,14 +716,9 @@ class PubNub extends MonoBehaviour{
 					StopHeartbeat();
 				}
 			}
-			
+			#endif
 			var subscribeWww1 = Request( [suburl, subkey, Escape(ch), NULL, timetoken], ["uuid=" + uuid, pnsdk] );
-			/*var subscribeWww1:WWW;
-			try{
-				subscribeWww1 = Request( [suburl, subkey, Escape(ch), NULL, timetoken], ["uuid=" + uuid, pnsdk] );
-			} catch(err) Debug.Log("subscribeWww1 err: " + err);*/
 
-			//yield subscribeWww1;
 			if(!isTest){
 				yield subscribeWww1;
 			} else {

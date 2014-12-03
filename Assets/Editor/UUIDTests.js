@@ -25,7 +25,11 @@ public class UUIDTests
 		}
 	}
 	
+	#if UNITY_WEBPLAYER
+	@Ignore
+	#else
 	@Test
+	#endif
 	function CustomUUID ()
 	{
 		var uuid = "customuuid";
@@ -33,7 +37,11 @@ public class UUIDTests
 		CustomUUIDCommon(uuid, cmb);
 	}
 	
+	#if UNITY_WEBPLAYER
+	@Ignore
+	#else
 	@Test
+	#endif
 	function CustomUUIDSSL ()
 	{
 		var uuid = "customuuidssl";
