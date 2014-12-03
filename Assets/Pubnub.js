@@ -4,16 +4,18 @@ import System.Collections.Generic;
 import System.Text;
 import System.Threading;
 
-
+//TODO:
+//Configure on Jenkins, partially
+//update blog, nd
 class PubNub extends MonoBehaviour{
 	var host = "pubsub.pubnub.com";
 	var puburl = "publish";
 	var suburl = "subscribe";
 	var hurl = "v2";
 	var turl = "time/0";
-	var pubkey = "demo";
-	var subkey = "demo";
-	var seckey = "demo";
+	var pubkey = "";
+	var subkey = "";
+	var seckey = "";
 	var cipherkey = "";
 	var ssl = false;
 	var limit = 1800;
@@ -21,13 +23,20 @@ class PubNub extends MonoBehaviour{
 	var chArr = new Array ();
 	var NULL = '0';
 	var timetoken = NULL;
+	var subscribeWithTimetoken:Int64 = 0;
 	var uuid = "";
 	var channelUpdateLock = false;
 	var retryInterval = 10; //sec
 	var heartBeatRunning = false;
 	private var builder: System.Text.StringBuilder;
 	var thdHeartbeat:Thread;
-	var disableHeartbeat = true;
+	var disableHeartbeat = false;
+	var isTest = false;
+	var resumeOnReconnect = true;
+	var isDisconnected = false;
+	var retryCount = 0;
+	var maxRetries = 50;
+	var pnsdk = "pnsdk=PubNub-UnityScript/3.4";
 	
 	function PubNub(){
 		builder = new System.Text.StringBuilder();
@@ -100,15 +109,62 @@ class PubNub extends MonoBehaviour{
 		cipherkey = cipher;
 		ssl = sslOn;
 		uuid = nuuid;
+		if(uuid == ""){
+			uuid = Guid();
+		}
 	}
 	
 	private function Escape( msg: String ): String { return WWW.EscapeURL(msg); }
 	private function UnEscape( msg: String ): String { return WWW.UnEscapeURL(msg); }
 	//private function Wrap( msg: String ): String{ return Escape('"'+msg+'"'); }
+	
+	function IsSubKeyInvalid(cb: Function):boolean{
+		if((subkey == null) || (subkey == "")){
+			cb( ["[0, \"Invalid Subscribe Key\"]"] );
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	function IsChannelInvalid(channel:String, cb: Function):boolean{
+		if((channel == null) || (channel == "")){
+			cb( ["[0, \"Invalid Channel\"]", channel] );
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	function IsMessageInvalid(message:Object, cb: Function, channel:String):boolean{
+		if((message == null) || (message.ToString() == "")){
+			cb( ["[0, \"Invalid Message\"]", channel] );
+			return true;
+		} else {
+			return false;
+		}
+	}
 
 	//TODO:Accept objects
 	function Publish( channel: String, objectToSerialize: Object, sendAsIs: boolean, cb: Function ){
 		var msg: String;
+		if((pubkey == null) || (pubkey == "")){
+			cb( ["[0, \"Invalid Publish Key\"]"] );
+			return;
+		}
+		
+		if(IsSubKeyInvalid(cb)){			
+			return;
+		}
+		
+		if(IsChannelInvalid(channel, cb)){
+			return;
+		}
+		
+		if(IsMessageInvalid(objectToSerialize, cb, channel)){
+			return;
+		}		
+		
 		if(sendAsIs){
 			msg = objectToSerialize.ToString();
 		}else {
@@ -120,9 +176,12 @@ class PubNub extends MonoBehaviour{
 			var origmsg = msg;
 			msg = pubnubCrypto.Encrypt(msg);
 			msg = JsonWriter.Serialize (msg);
+			
 			Debug.Log("pubnubCrypto.Encrypt:" + origmsg +":"+ msg);
 		}
+		msg = CommonMethods.ConvertHexToUnicodeChars(msg);
 		msg = Escape(msg);
+		
 		Debug.Log("msg: " + msg);
 		
 		var w: WWW = null;
@@ -145,13 +204,20 @@ class PubNub extends MonoBehaviour{
                 // Sign Message
                 signature = Md5Sum (stringToSign.ToString ());
             }
-			w = Request([puburl, pubkey, subkey, signature, channel, 0, msg], null);
+			w = Request([puburl, pubkey, subkey, signature, channel, 0, msg], ["uuid=" + uuid, pnsdk]);
 		} catch(err) {
 			Debug.Log("Publish Error:" + err);
 			return;
 		}	
 					
-		yield w;
+		//yield w;
+		if(!isTest){
+			yield w;
+		} else {
+			while(!w.isDone){
+				Debug.Log("waiting");
+			}
+		}
 	
 		if( w.error ){
 			Debug.Log( w.error );
@@ -186,17 +252,58 @@ class PubNub extends MonoBehaviour{
 				return jsonObject;	
 			}
 		} catch (err) {
+			//err = CommonMethods.ConvertUnicodeToHex(err);
 			Debug.Log("Decrypt error: " + err);
 			return jsonObject;	
 		}	
 	}
 
-	function DetailedHistory( channel: String, count:int, cb: Function ){
+	function DetailedHistory( channel: String, count:int, start:long, end:long, reverse:boolean, cb: Function ){
+		
+		if(IsSubKeyInvalid(cb)){			
+			return;
+		}
+		
+		if(IsChannelInvalid(channel, cb)){
+			return;
+		}
+		
 		channel = Escape(channel);
 		
+		if (count <= -1) count = 100;
+
+		var paramString = "";
+		if (reverse) {
+			var reverseString = "reverse=" + reverse.ToString().ToLower ();
+			paramString = reverseString;
+		}
+		if (start != -1) {
+			var startString = "start=" + start.ToString().ToLower();
+			if(paramString != ""){
+				paramString += "&" + startString;
+			} else {
+				paramString += startString;
+			}
+		}
+		if (end != -1) {
+			var endString = "end=" + end.ToString().ToLower();
+			if(paramString != ""){
+				paramString += "&" + endString;
+			} else {
+				paramString += endString;
+			}
+		}
+		
 		var backoff = 0;
-		var w = Request([hurl, "history", "sub-key" , subkey, "channel", channel], ["count=" + count]);
-		yield w;
+		var w = Request([hurl, "history", "sub-key" , subkey, "channel", channel], ["count=" + count, "uuid=" + uuid, pnsdk, paramString ]);
+		//yield w;
+		if(!isTest){
+			yield w;
+		} else {
+			while(!w.isDone){
+				Debug.Log("waiting");
+			}
+		}		
 	
 		if( w.error ){
 			Debug.Log( w.error );
@@ -206,9 +313,11 @@ class PubNub extends MonoBehaviour{
 		} else { 
 			if(this.cipherkey!=""){
 				Debug.Log("w.text"+w.text);
+				var message = CommonMethods.ConvertHexToUnicodeChars(w.text);
+				Debug.Log("detail his message:"+message);
 				var pubnubCrypto:PubnubCrypto = new PubnubCrypto(this.cipherkey);
 				
-				var output:Object[] = JsonReader.Deserialize (w.text) as Object[];
+				var output:Object[] = JsonReader.Deserialize (message) as Object[];
 		
 				//var timetoken1:double;
 				var t1: System.Double;
@@ -239,38 +348,76 @@ class PubNub extends MonoBehaviour{
 				if(output.Length >2){
 					returnArrayFinal.Add(t2);
 				}
-				cb( JsonWriter.Serialize(returnArrayFinal) ); 
+				message = JsonWriter.Serialize(returnArrayFinal);
+				message = CommonMethods.ConvertHexToUnicodeChars(message);
+				cb( DecodeUrlString(message) ); 
 			} else {
-				cb( w.text ); 
+				var message2 = CommonMethods.ConvertHexToUnicodeChars(w.text);
+				cb( DecodeUrlString(message2) ); 
 			}
 			return; 
+		}
+	}
+	
+	function yieldOrWait(w:WWW){
+		if(!isTest){
+			yield w;
+		} else {
+			while(!w.isDone){
+				Debug.Log("waiting");
+			}
 		}
 	}
 
 	function Time (cb: Function){
 		var backoff = 0;
-		var w = Request([turl], null);
-		yield w;
-	
+		var w = Request([turl], ["uuid=" + uuid, pnsdk]);
+
+		if(!isTest){
+			yield w;
+		} else {
+			while(!w.isDone){
+				Debug.Log("waiting");
+			}
+		}
+		
 		if( w.error ){
 			Debug.Log( w.error );
 			if( backoff < 1 ) backoff += 0.1;
 			yield WaitForSeconds( backoff );
 			
-		} else { cb( w.text ); return; }		
+		} else { 
+			Debug.Log("Return:" + w.text);
+			cb( w.text ); return; 
+		}		
 	}
 
 	function HereNow( channel: String, cb: Function ){
+		if(IsSubKeyInvalid(cb)){			
+			return;
+		}
+		
+		if(IsChannelInvalid(channel, cb)){
+			return;
+		}
+			
 		channel = Escape(channel);
 		var w: WWW = null;
 		var backoff = 0;
 		try{		
-			w = Request([hurl, "presence", "sub-key" , subkey, "channel", channel], null);
+			w = Request([hurl, "presence", "sub-key" , subkey, "channel", channel], ["uuid=" + uuid, pnsdk]);
 		} catch(err) {
 			Debug.Log("Herenow Error:" +err);
 			return;
 		}	
-		yield w;
+		//yield w;
+		if(!isTest){
+			yield w;
+		} else {
+			while(!w.isDone){
+				Debug.Log("waiting");
+			}
+		}
 	
 		if( w.error ){
 			Debug.Log( w.error );
@@ -283,8 +430,19 @@ class PubNub extends MonoBehaviour{
 		}
 	}
 	
-	function Subscribe( channel: String, isPresence: boolean, cb: Function, cbPresence: Function){
-		if(isPresence) channel +="-pnpres";
+	function Subscribe( channel: String, isPresence: boolean, timetoken:String, cb: Function, cbPresence: Function){
+		if(IsChannelInvalid(channel, cb)){
+			return;
+		}
+	
+		if(isPresence){
+			channel +="-pnpres";
+			if(IsSubKeyInvalid(cbPresence)){			
+				return;
+			}
+		} else if(IsSubKeyInvalid(cb)){			
+			return;
+		}		
 		
 		if(channelUpdateLock){
 			Debug.Log("Processing....");
@@ -296,6 +454,28 @@ class PubNub extends MonoBehaviour{
 			for (var value in chArr) {
 				if(value == channel){
 					Debug.Log("Channel already subscribed ");
+					var arr =  new Array ();
+					arr.Add ("0");
+					arr.Add ("Already Subscribed");
+					
+					var posp = channel.IndexOf("-pnpres");
+					var isPresence2 = false;
+					var retChannel2 = channel;
+					if(posp >-1){
+						retChannel2 = channel.Substring(0, posp);
+						isPresence2 = true;
+					}
+				
+					if(cbPresence == null){
+						Debug.Log("cbPresence is null");
+					}
+					var message2 = JsonWriter.Serialize(arr);
+					if(isPresence2 && (cbPresence != null)){
+						cbPresence([message2, retChannel2]);	
+					} else if (cb != null){
+						cb( [message2, retChannel2] );						
+					}			
+					
 					return;
 				}
 			}
@@ -313,9 +493,23 @@ class PubNub extends MonoBehaviour{
 		} finally {
 			channelUpdateLock = false;
 		}
+		var t: System.Int64;
+		System.Int64.TryParse( timetoken, t );
+		
+		if(t>0){
+			subscribeWithTimetoken = t;
+		}
+		
 		var cbArr = [cb, cbPresence];
 		StopHeartbeat();
 		yield StartCoroutine("SubLoop", cbArr);
+
+	}
+	
+	function End(){
+		chArr = new Array ();
+		//StopCoroutine("SubLoop");
+		//StopHeartbeat();
 	}
 		
 	function toDateFromEpoch(lTimetoken: String){
@@ -350,13 +544,47 @@ class PubNub extends MonoBehaviour{
 	}	
 	
 	function Heartbeat(cb:Function){
+		var returnArray = new ArrayList();
+		var message = "";
+		var url = "http://" + host + "/" + turl + "?uuid=" + uuid + "&" + pnsdk;
 		while(heartBeatRunning){
 			Debug.Log("Heartbeat running...");
-			if(CheckForInternetConnection()){
+			if(CheckForInternetConnection(url)){
+				if(isDisconnected){
+					returnArray = new ArrayList();
+					returnArray.Add ("1");
+					returnArray.Add ("Internet reconnected.");
+	
+					SendReturnMessage(cb, returnArray, true);
+					if(!resumeOnReconnect){
+						timetoken = NULL;
+					}
+				}
+				isDisconnected = false;
+				retryCount = 0;
 				Debug.Log("Internet Connection OK");
 			} else {
-				Debug.Log("Internet Connection Error");
-				SendErrorMessage(cb);
+				returnArray = new ArrayList();
+				
+				isDisconnected = true;
+				retryCount++;
+				if(retryCount >= maxRetries){
+					returnArray.Add ("2");
+					message = "Internet reconnection retry limit exceeded. Unsubscribing channel.";
+					Debug.Log(message);
+					returnArray.Add (message);
+					SendReturnMessage(cb, returnArray, false);
+					chArr = new Array ();
+					StopHeartbeat();
+					break;
+				} else {
+					message = "Internet connection error. Retry count " + retryCount.ToString() + " of " + maxRetries.ToString();
+					Debug.Log(message);
+					returnArray.Add ("0");
+					returnArray.Add (message);
+				
+					SendReturnMessage(cb, returnArray, false);					
+				}
 			}
 
 			//yield WaitForSeconds(10);
@@ -364,14 +592,14 @@ class PubNub extends MonoBehaviour{
 		}
 	}
 	
-	function CheckForInternetConnection()
+	function CheckForInternetConnection(url:String)
 	{
 		//var client : System.Net.WebClient;
 		//var stream : System.IO.Stream;
 		try
 		{
 			//client = new System.Net.WebClient();
-			var url = "http://" + host;
+			
 			var www = WWW(url);
 			
 			Debug.Log("url:"+url);
@@ -410,17 +638,19 @@ class PubNub extends MonoBehaviour{
 		}
 	}
 	
-	function SendErrorMessage(cb:Function){
+	function SendReturnMessage(cb:Function, returnArray:ArrayList, status:Boolean){
 		try {
-			var returnArray = new ArrayList();
-			returnArray.Add("Internet connection error. Retry count 1 of 50.");
 			var message = JsonWriter.Serialize(returnArray);
-			for (var value in chArr) {
-				var retChannel:String = value as String;
-				var pos = retChannel.IndexOf("-pnpres");
-				if(pos < 0){
-					cb ([message], retChannel, false, timetoken);
+			if(cb != null){
+				for (var value in chArr) {
+					var retChannel:String = value as String;
+					var pos = retChannel.IndexOf("-pnpres");
+					if(pos < 0){
+						cb ([message, timetoken, retChannel, status]);
+					}
 				}
+			} else {
+				Debug.Log("cb null for heartbeat");
 			}
 		} catch(err) Debug.Log("SendErrorMessage:" +err);	
 	}
@@ -431,8 +661,11 @@ class PubNub extends MonoBehaviour{
 		if(cbArr[1]!= null){
 			cbPresence = cbArr[1];
 		}
-		
-		timetoken = NULL;
+		if(subscribeWithTimetoken > 0){
+			timetoken = subscribeWithTimetoken.ToString();
+		} else { 
+			timetoken = NULL;
+		}
 		var backoff = 0;
 
 		var running = true;
@@ -476,6 +709,7 @@ class PubNub extends MonoBehaviour{
 			if(!disableHeartbeat){
 				if( nonPresenceCount >0 && !heartBeatRunning){
 					//yield StartCoroutine("Heartbeat", cb);
+					Debug.Log("Starting heartbeat");
 					thdHeartbeat = new Thread(new ParameterizedThreadStart(Heartbeat));
 					thdHeartbeat.Name = "heartbeart thread";
 					heartBeatRunning = true;
@@ -485,12 +719,23 @@ class PubNub extends MonoBehaviour{
 				}
 			}
 			
-			var subscribeWww1 = Request( [suburl, subkey, Escape(ch), NULL, timetoken], ["uuid=" + uuid] );
-			yield subscribeWww1;	
+			var subscribeWww1 = Request( [suburl, subkey, Escape(ch), NULL, timetoken], ["uuid=" + uuid, pnsdk] );
+			/*var subscribeWww1:WWW;
+			try{
+				subscribeWww1 = Request( [suburl, subkey, Escape(ch), NULL, timetoken], ["uuid=" + uuid, pnsdk] );
+			} catch(err) Debug.Log("subscribeWww1 err: " + err);*/
+
+			//yield subscribeWww1;
+			if(!isTest){
+				yield subscribeWww1;
+			} else {
+				while(!subscribeWww1.isDone){
+					Debug.Log("waiting");
+				}
+			}
 
 			try {									
 				if(subscribeWww1 != null ){
-
 					if( subscribeWww1.error ){
 						Debug.Log("Www Error: " + subscribeWww1.error);
 						if( backoff < 1 ) backoff += 0.1;
@@ -509,78 +754,109 @@ class PubNub extends MonoBehaviour{
 	
 	function ProcessCallbacks(ch:String, response:String, cb: Function, cbPresence: Function){
 		try {
+			response = CommonMethods.ConvertHexToUnicodeChars(response);
+			//response = UnEscape(response);
 			var output:Object[] = JsonReader.Deserialize (response) as Object[];
-	
+			var prevTimetoken = timetoken;
 			if(output.Length >1){
 				timetoken = output[1] as String;
 			}
-			
 			//timetoken = j._get(1).toString();
-			var params = output[1] as String;//j._get(0).stringify(); 
-			var t: System.Int64;
-			System.Int64.TryParse( timetoken, t );
-			var cTime = toDateFromEpoch(timetoken);
-			var retChannels:String = ch;
-		
-			/*if(j.length() > 2 ){
-				retChannels = j._get(2).toString();
-			}*/
-			if(output.Length >2){
-				retChannels = output[2] as String;
-			}
-			var channelArr:String[] = retChannels.Split(","[0]);
-			//var messArr:json = json.fromString(j._get(0).stringify());
-			
-			var output2:Object[] = output[0] as Object[];
-			var k =0;
-			//for (k=0; k< messArr.length(); k++){
-			for (k=0; k< output2.Length; k++){
-				var retChannel:String;
-				if(channelArr.Length>k){
-					retChannel = channelArr[k];
-				} else if(channelArr.Length==1){
-					retChannel = channelArr[0];
-				}
-				var pos = retChannel.IndexOf("-pnpres");
-
-				var isPresence = false;
-				if(pos >-1){
-					retChannel = retChannel.Substring(0, pos);
-					isPresence = true;
-				}
-				params = output2[k] as String;
-
-				if( params != "[]" ) {
-					if(isPresence && cbPresence != null){
-						Debug.Log(retChannel + " SENDING on presence callback");
-						Debug.Log(params + " params");
-						var message = JsonWriter.Serialize(params);
-						cbPresence( [UnEscape(message), t, retChannel] ); // pass only non-empty msgs
-					} else {
-						ProcessSubscribeCallback(output2[k], cTime, retChannel, t, cb);
-					}
-				} else if(retChannel != ""){
+			//var params = output[0] as Object[];//j._get(0).stringify(); 
+			var params = output[0] as String;
+			if(prevTimetoken == "0"){
+				var k2:int;
+				var channelArrConn:String[] = ch.Split(","[0]);
+				for (k2=0; k2 < channelArrConn.Length; k2++){
 					var arr =  new Array ();
-					Debug.Log(retChannel + " Connected");
+					Debug.Log(channelArrConn[k2] + " Connected");
 					arr.Add ("1");
 					arr.Add ("Connected");
 					
-					Debug.Log(isPresence + " isPresence");
+					var posp = channelArrConn[k2].IndexOf("-pnpres");
+					var retChannel2 = channelArrConn[k2];
+					var isPresence2 = false;
+					if(posp >-1){
+						retChannel2 = channelArrConn[k2].Substring(0, posp);
+						isPresence2 = true;
+					}
+				
+					Debug.Log(isPresence2 + " isPresence");
 					if(cbPresence == null){
 						Debug.Log("cbPresence is null");
 					}
-					if(isPresence && cbPresence != null){
-						Debug.Log(retChannel + " SENDING on presence callback");
-						arr.Add (retChannel);
-						cbPresence(arr);
-					} else {
-						Debug.Log(retChannel + " SENDING on subscribe callback");
-						arr.Add (retChannel);
-						cb ( arr);
+					var message2 = JsonWriter.Serialize(arr);
+					
+					if(isPresence2 && (cbPresence != null)){
+						Debug.Log(retChannel2 + " SENDING on presence callback");
+						cbPresence([message2, retChannel2]);
+					} else if (cb !=null) {
+						Debug.Log(retChannel2 + " SENDING on subscribe callback");
+						cb ([message2, retChannel2]);
 					}
 				}
+			} else if( params != "" ) {
+				//if((params != null) && (params.Trim() != "" )) {
+				var t: System.Int64;
+				System.Int64.TryParse( timetoken, t );
+				var cTime = toDateFromEpoch(timetoken);
+				var retChannels:String = ch;
+		
+				/*if(j.length() > 2 ){
+					retChannels = j._get(2).toString();
+				}*/
+				if(output.Length >2){
+					retChannels = output[2] as String;
+				}
+				var channelArr:String[] = retChannels.Split(","[0]);
+				//var messArr:json = json.fromString(j._get(0).stringify());
+			
+				var output2:Object[] = output[0] as Object[];
+				var k =0;
+				//for (k=0; k< messArr.length(); k++){
+				for (k=0; k< output2.Length; k++){
+					var retChannel:String;
+					if(channelArr.Length>k){
+						retChannel = channelArr[k];
+					} else if(channelArr.Length==1){
+						retChannel = channelArr[0];
+					}
+					var pos = retChannel.IndexOf("-pnpres");
+
+					var isPresence = false;
+					if(pos >-1){
+						retChannel = retChannel.Substring(0, pos);
+						isPresence = true;
+					}
+					//params = output2[k] as String;
+
+					if(isPresence && cbPresence != null){
+						Debug.Log(retChannel + " SENDING on presence callback");
+						var message = JsonWriter.Serialize(output2[k]);
+						cbPresence( [UnEscape(message), t, retChannel] ); // pass only non-empty msgs
+						//cbPresence( [message, t, retChannel] ); // pass only non-empty msgs
+					} else {
+						ProcessSubscribeCallback(output2[k], cTime, retChannel, t, cb);
+					}
+				}		
+			} else {
+				Debug.Log("TODO ELSE...");
 			}
 		} catch(err) Debug.Log("Deserialize error: " + err.ToString() + " \nResponse:" +response);	
+	}
+	
+	function DecodeUrlString(url:String):String {
+		var newUrl:String;
+		var loop= true;
+		while (loop){
+			newUrl = Uri.UnescapeDataString(url);
+			if(newUrl != url){
+				url = newUrl;
+			} else {
+				break;
+			}
+		}	
+		return newUrl.Replace("+", " ");
 	}
 	
 	function ProcessSubscribeCallback(messArr:Object, cTime: System.DateTime, retChannel:String, t:System.Int64, cb: Function){
@@ -593,11 +869,26 @@ class PubNub extends MonoBehaviour{
 			returnArray.Add(messArr);
 		}
 		var message = JsonWriter.Serialize(returnArray);
-		cb( [UnEscape(message), t, retChannel] ); // pass only non-empty msgs
+		Debug.Log("before:"+message);
+		message = DecodeUrlString(CommonMethods.ConvertHexToUnicodeChars(message));
+		Debug.Log("after:"+message);
+		
+		//Debug.Log("UnEscape:"+UnEscape(message));
+		
+		//cb( [UnEscape(message), t, retChannel] ); // pass only non-empty msgs
+		cb( [message, t, retChannel] ); // pass only non-empty msgs
 	}
 	
 	function Unsubscribe( channel: String, isPresence: Boolean, cb: Function ){
+		if(IsSubKeyInvalid(cb)){			
+			return;
+		}
+		
+		if(IsChannelInvalid(channel, cb)){
+			return;
+		}		
 		if(isPresence) channel +="-pnpres";
+		
 		channelUpdateLock = true;
 		if(!channel in channels) return;
 
@@ -610,12 +901,19 @@ class PubNub extends MonoBehaviour{
 		var w: WWW = null;
 		var backoff = 0;
 		try{		
-			w = Request([hurl, "presence", "sub-key" , subkey, "channel", channel, "leave"], ["uuid=" + uuid]);
+			w = Request([hurl, "presence", "sub-key" , subkey, "channel", channel, "leave"], ["uuid=" + uuid, pnsdk]);
 		} catch(err) {
 			Debug.Log("Unsubscribe Error:" +err);
 			return;
 		}	
-		yield w;
+		//yield w;
+		if(!isTest){
+			yield w;
+		} else {
+			while(!w.isDone){
+				Debug.Log("waiting");
+			}
+		}
 	
 		if( w.error ){
 			Debug.Log( w.error );

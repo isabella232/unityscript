@@ -56,10 +56,6 @@ class PubnubCrypto
 				} catch (ex) {
 					Debug.Log (String.Format ("DateTime {0} Decrypt Error. {1}, Orig Msg: {2}", DateTime.Now.ToString (), ex.ToString (), origmsg));
 					return(origmsg);
-					//return "\"**DECRYPT ERROR**\"";
-					//throw ex;
-					//Debug.Log(string.Format("DateTime {0} Decrypt Error. {1}", DateTime.Now.ToString(), ex.ToString()));
-					//return "**DECRYPT ERROR**";
 				}
 			}
 		}
@@ -94,43 +90,6 @@ class PubnubCrypto
 	}
 
 	/// <summary>
-	/// Converts the upper case hex to lower case hex.
-	/// </summary>
-	/// <returns>The lower case hex.</returns>
-	/// <param name="value">Hex Value.</param>
-	function ConvertHexToUnicodeChars (value:String):String 
-	{
-		/*return Regex.Replace (
-			value,
-			"\\u(?<Value>[a-zA-Z0-9]{4})", 
-			m => {
-				return ((char)int.Parse (m.Groups ["Value"].Value, NumberStyles.HexNumber)).ToString ();
-			}     
-		);*/
-	
-		/*return System.Text.RegularExpressions.Regex.Replace (
-			value,
-			"\\u(?<Value>[a-zA-Z0-9]{4})", a(value)
-		);*/
-		return "";
-	}
-	
-	/*function a(value:String){
-		var i:int = int.Parse (value, System.NumberStyles.HexNumber);
-		var c:char = System.Convert.ToChar(i);
-		return c;
-	}*/
-	
-	function pad_four(input) {
-        var l = input.length;
-        if (l == 0) return '0000';
-        if (l == 1) return '000' + input;
-        if (l == 2) return '00' + input;
-        if (l == 3) return '0' + input;
-        return input;
-    }
-
-	/// <summary>
 	/// Encodes the non ASCII characters.
 	/// </summary>
 	/// <returns>
@@ -141,27 +100,12 @@ class PubnubCrypto
 	/// </param>
 	function EncodeNonAsciiCharacters (value:String):String 
 	{
-		//#if (USE_JSONFX_UNITY || USE_JSONFX_UNITY_IOS)
-		//value = ConvertHexToUnicodeChars(value);
-		//#endif
-
+		value = CommonMethods.ConvertHexToUnicodeChars(value);
+		Debug.Log("value:"+value);
 		var sb:StringBuilder = new StringBuilder ();
-		//var c:char;
-		//foreach (c in value) {
-		l = value.length; 
-		/*for (var i = 0; i < l; i++){
-			Debug.Log("value.charCodeAt(i)"+value.charCodeAt(i));
-			if (value(i) > 127) {
-				// This character is too big for ASCII
-				//var encodedValue:String = "\\u" + ((int)c).ToString ("x4");
-				var encodedValue:String = "\\u" + Convert.ToInt16(ch);//pad_four(value.charCodeAt(i).toString(16));
-				sb.Append (encodedValue);
-			} else {
-				//sb.Append (c);
-				sb.Append (value(i));
-			}
-		}*/
-		//foreach (var c in value) {
+		var l = value.length; 
+
+		var i:int;
 		for(i=0; i<l; i++){
 			var c:char;	
 			c = value[i];
