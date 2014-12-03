@@ -204,7 +204,7 @@ function ParseResponsePresence( msgs: Array ){
 			} 
 		}
 	}catch (err) {
-		Debug.Log("ParseResponseSubscribe:" +err);
+		Debug.Log("ParseResponsePresence:" +err);
 	}
 }
 

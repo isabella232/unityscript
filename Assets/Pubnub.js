@@ -35,7 +35,7 @@ class PubNub extends MonoBehaviour{
 	var resumeOnReconnect = true;
 	var isDisconnected = false;
 	var retryCount = 0;
-	var maxRetries = 10;
+	var maxRetries = 50;
 	var pnsdk = "pnsdk=PubNub-UnityScript/3.4";
 	
 	function PubNub(){
