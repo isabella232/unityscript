@@ -5,14 +5,7 @@ import System.Text;
 import System.Threading;
 
 //TODO:
-//1. tests: Connected and AlreadySubscribed, DONE
-//2. tests: Presence tests failing, nd
-//3. tests: Decryption unicode failing, DONE
-//4. tests: Emoji failing, DONE
-
-//input for keys and cipher in adv view, done, test pending on ios and Android
-//UI for android and iOS, done, test pending
-//Configure on Jenkins, nd
+//Configure on Jenkins, partially
 //update blog, nd
 class PubNub extends MonoBehaviour{
 	var host = "pubsub.pubnub.com";
