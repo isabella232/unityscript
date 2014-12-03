@@ -4,9 +4,6 @@ import System.Collections.Generic;
 import System.Text;
 import System.Threading;
 
-//TODO:
-//Configure on Jenkins, partially
-//update blog, nd
 class PubNub extends MonoBehaviour{
 	var host = "pubsub.pubnub.com";
 	var puburl = "publish";
