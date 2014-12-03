@@ -22,7 +22,7 @@ public class DetailedHistoryTests
 		//cmb.StartCoroutineEx(Common.pubnubCommon.DetailedHistory(ch, 1, -1, -1, false, Common.ParseResponse), controller);
 		cmb.StartCoroutine(Common.pubnubCommon.Publish(ch, message, false, Common.ParseResponseDummy));
 
-		cmb.StartCoroutine(Common.pubnubCommon.DetailedHistory(ch, 1, -1, -1, false, Common.ParseResponse));
+		cmb.StartCoroutine(Common.pubnubCommon.DetailedHistory(ch, 1, -1, -1, true, Common.ParseResponse));
 		if(Common.response != null){
 			var i = Common.response.length;
 
@@ -150,13 +150,13 @@ public class DetailedHistoryTests
 		Common.deliveryStatus = false;		
 
 		//ParseDetailedHistory(ch, 5, starttime, midtime, false, Common.ParseResponse, msgArr1, cmb, controller);
-		ParseDetailedHistory(ch, 5, starttime, midtime, false, Common.ParseResponse, msgArr1, cmb);
+		ParseDetailedHistory(ch, 5, starttime, midtime, true, Common.ParseResponse, msgArr1, cmb);
 		
 		Common.response = null;
 		Common.deliveryStatus = false;		
 		
 		//ParseDetailedHistory(ch, 5, midtime, endtime, false, Common.ParseResponse, msgArr2, cmb, controller);
-		ParseDetailedHistory(ch, 5, midtime, endtime, false, Common.ParseResponse, msgArr2, cmb);	
+		ParseDetailedHistory(ch, 5, midtime, endtime, true, Common.ParseResponse, msgArr2, cmb);	
 	}
 	
 	@Test
